@@ -1,4 +1,4 @@
-use crate::{deser::DeSer, link::Link, utils::is_pow2};
+use crate::{deser::DeSer, iter::SkMapIter, link::ListItem, utils::is_pow2};
 use serde::{Deserialize, Serialize};
 use st_file::{traits::IndexedAccess, MemFile};
 use std::{cmp::Ordering, marker::PhantomData};
@@ -10,6 +10,20 @@ pub struct SkipMap<T, V> {
     entries: Vec<u32>,
     p: PhantomData<T>,
     p2: PhantomData<V>,
+}
+
+impl<T, V> SkipMap<T, V> {
+    /// Returns the amount of items in the skip-list
+    #[inline]
+    pub fn len(&self) -> usize {
+        self.items.len()
+    }
+
+    /// Returns `true` if there is no item in the skip-list
+    #[inline]
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
 }
 
 impl<T, V> SkipMap<T, V>
@@ -33,11 +47,11 @@ where
         let mut entry_points = vec![];
 
         // All items
-        let mut link_items: Vec<Link<T, V>> = vec![];
+        let mut link_items: Vec<ListItem<T, V>> = vec![];
 
         for (pos, (k, v)) in list.into_iter().enumerate() {
             let pos = pos as u32;
-            let item = Link::with_next(k, v, pos + 1);
+            let item = ListItem::with_next(k, v, pos + 1);
 
             if is_pow2(pos + 1) {
                 entry_points.push(pos);
@@ -67,26 +81,25 @@ where
         }
     }
 
+    /// Gets the key and value of the element at the given position
     #[inline]
-    pub fn len(&self) -> usize {
-        self.items.len()
+    pub fn get(&self, pos: usize) -> Option<(T, V)> {
+        let enc = self.items.get(pos)?;
+        let item = ListItem::<T, V>::decode(enc)?;
+        Some((item.item, item.value))
     }
 
+    /// Returns an iterator over all items in the skip list
     #[inline]
-    pub fn is_empty(&self) -> bool {
-        self.len() == 0
+    pub fn iter(&self) -> SkMapIter<T, V> {
+        SkMapIter::new(self)
     }
 
+    /// Gets a list item at the given position
     #[inline]
-    pub fn len_bytes(&self) -> usize {
-        self.items.raw_len() + self.items.len() * 4 + self.entries.len() * 4
-    }
-
-    /// Gets a link at the given position
-    #[inline]
-    fn get_item(&self, pos: u32) -> Option<Link<T, V>> {
+    fn get_list_item(&self, pos: u32) -> Option<ListItem<T, V>> {
         let enc = self.items.get(pos as usize)?;
-        Link::<T, V>::decode(enc)
+        ListItem::<T, V>::decode(enc)
     }
 }
 
@@ -95,43 +108,46 @@ where
     T: DeSer + Ord,
     V: DeSer,
 {
-    /// Finds the given order func in the skip map and returns its value and position
+    /// Finds an item within the skip-list using a key
     #[inline]
     pub fn find(&self, key: &T) -> Option<(u32, V)> {
         self.find_by(|other| other.cmp(key))
     }
 
-    /// Finds the given order func in the skip map and returns its value and position.
+    /// Finds an item in the skip map and returns its value and position.
     /// The comparator function should return an order code that indicates whether
     /// its argument is Less, greater or equal to the value its looking for
-    pub fn find_by<C>(&self, cmp: C) -> Option<(u32, V)>
+    pub fn find_by<C>(&self, f: C) -> Option<(u32, V)>
     where
         C: Fn(&T) -> Ordering,
     {
         let mut prev_ep: Option<u32> = None;
 
+        // Find entrypoint which is bigger then the element
         for entry_point in self.entries.iter().copied() {
-            let item = self.get_item(entry_point)?;
+            let item = self.get_list_item(entry_point)?;
 
-            match (cmp)(&item.item) {
-                Ordering::Equal => return Some((entry_point, item.value)),
-                Ordering::Greater => break,
-                Ordering::Less => (),
+            let cmp = (f)(&item.item);
+            if cmp == Ordering::Greater {
+                break;
+            } else if cmp == Ordering::Equal {
+                return Some((entry_point, item.value));
             }
 
             prev_ep = Some(entry_point);
         }
 
+        // Walk pointer for list item
         let mut p = prev_ep?;
-        loop {
-            let p_item = self.get_item(p)?;
-            match (cmp)(&p_item.item) {
-                Ordering::Less => (),
-                Ordering::Greater => return None,
-                Ordering::Equal => return Some((p, p_item.value)),
-            }
 
-            if !p_item.has_next() {
+        // Search on the given level for the element
+        loop {
+            let p_item = self.get_list_item(p)?;
+            let cmp = (f)(&p_item.item);
+
+            if cmp == Ordering::Equal {
+                return Some((p, p_item.value));
+            } else if cmp == Ordering::Greater || !p_item.has_next() {
                 break;
             }
 
@@ -150,6 +166,33 @@ impl<T, V> Default for SkipMap<T, V> {
             entries: Default::default(),
             p: Default::default(),
             p2: Default::default(),
+        }
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::super::SkipList;
+
+    #[test]
+    fn test_find() {
+        let inp = ['A', 'B', 'C', 'D', 'E', 'F'];
+        let skip_map = SkipList::from_sorted_iter(inp);
+
+        for (pos, i) in inp.iter().enumerate() {
+            let found = skip_map.find(&i);
+            assert_eq!(found, Some(pos as u32));
+        }
+    }
+
+    #[test]
+    fn test_find2() {
+        let inp: Vec<_> = (0..5000).collect();
+        let skip_map = SkipList::from_sorted_iter(inp.clone());
+
+        for (pos, i) in inp.iter().enumerate() {
+            let found = skip_map.find(&i);
+            assert_eq!(found, Some(pos as u32));
         }
     }
 }

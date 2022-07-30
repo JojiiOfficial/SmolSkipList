@@ -3,17 +3,19 @@ use serde::{Deserialize, Serialize};
 
 /// A linked list item
 #[derive(Serialize, Deserialize)]
-pub struct Link<T, V> {
+pub(crate) struct ListItem<T, V> {
     pub(crate) item: T,
     pub(crate) next: u32,
     pub(crate) value: V,
 }
 
-impl<T, V> Link<T, V>
+impl<T, V> ListItem<T, V>
 where
     T: DeSer,
     V: DeSer,
 {
+    /*
+    /// Create a new ListItem with key and value
     #[inline]
     pub fn new(item: T, value: V) -> Self {
         Self {
@@ -22,17 +24,15 @@ where
             value,
         }
     }
+    */
 
+    /// Creates a new ListItem with a value and next-pointer
     #[inline]
     pub fn with_next(item: T, value: V, next: u32) -> Self {
         Self { item, next, value }
     }
 
-    #[inline]
-    pub fn next(&self) -> u32 {
-        self.next
-    }
-
+    /// Returns `true` if the itemt has a next item
     #[inline]
     pub fn has_next(&self) -> bool {
         self.next != 0

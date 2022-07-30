@@ -14,7 +14,7 @@ mod test {
 
     #[test]
     fn test_is_pow2() {
-        let pows: HashSet<_> = (0..20).map(|i| 2u32.pow(i)).collect();
+        let pows: HashSet<_> = (0..10).map(|i| 2u32.pow(i)).collect();
         let mut max = 0;
         for pow in &pows {
             assert!(is_pow2(*pow));
