@@ -67,6 +67,21 @@ where
         }
     }
 
+    #[inline]
+    pub fn len(&self) -> usize {
+        self.items.len()
+    }
+
+    #[inline]
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+
+    #[inline]
+    pub fn len_bytes(&self) -> usize {
+        self.items.raw_len() + self.items.len() * 4 + self.entries.len() * 4
+    }
+
     /// Gets a link at the given position
     #[inline]
     fn get_item(&self, pos: u32) -> Option<Link<T, V>> {
