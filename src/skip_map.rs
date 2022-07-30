@@ -81,6 +81,12 @@ where
         }
     }
 
+    /// Returns an iterator over all items in the skip list
+    #[inline]
+    pub fn iter(&self) -> SkMapIter<T, V> {
+        SkMapIter::new(self)
+    }
+
     /// Gets the key and value of the element at the given position
     #[inline]
     pub fn get(&self, pos: usize) -> Option<(T, V)> {
@@ -89,16 +95,10 @@ where
         Some((item.item, item.value))
     }
 
-    /// Returns an iterator over all items in the skip list
-    #[inline]
-    pub fn iter(&self) -> SkMapIter<T, V> {
-        SkMapIter::new(self)
-    }
-
     /// Gets a list item at the given position
     #[inline]
-    fn get_list_item(&self, pos: u32) -> Option<ListItem<T, V>> {
-        let enc = self.items.get(pos as usize)?;
+    fn get_list_item(&self, pos: usize) -> Option<ListItem<T, V>> {
+        let enc = self.items.get(pos)?;
         ListItem::<T, V>::decode(enc)
     }
 }
@@ -110,21 +110,23 @@ where
 {
     /// Finds an item within the skip-list using a key
     #[inline]
-    pub fn find(&self, key: &T) -> Option<(u32, V)> {
+    pub fn find(&self, key: &T) -> Option<(usize, V)> {
         self.find_by(|other| other.cmp(key))
     }
 
     /// Finds an item in the skip map and returns its value and position.
     /// The comparator function should return an order code that indicates whether
     /// its argument is Less, greater or equal to the value its looking for
-    pub fn find_by<C>(&self, f: C) -> Option<(u32, V)>
+    pub fn find_by<C>(&self, f: C) -> Option<(usize, V)>
     where
         C: Fn(&T) -> Ordering,
     {
-        let mut prev_ep: Option<u32> = None;
+        let mut prev_ep: Option<usize> = None;
 
         // Find entrypoint which is bigger then the element
         for entry_point in self.entries.iter().copied() {
+            let entry_point = entry_point as usize;
+
             let item = self.get_list_item(entry_point)?;
 
             let cmp = (f)(&item.item);
@@ -146,12 +148,12 @@ where
             let cmp = (f)(&p_item.item);
 
             if cmp == Ordering::Equal {
-                return Some((p, p_item.value));
+                return Some((p as usize, p_item.value));
             } else if cmp == Ordering::Greater || !p_item.has_next() {
                 break;
             }
 
-            p = p_item.next;
+            p = p_item.next as usize;
         }
 
         None
@@ -181,7 +183,7 @@ mod test {
 
         for (pos, i) in inp.iter().enumerate() {
             let found = skip_map.find(&i);
-            assert_eq!(found, Some(pos as u32));
+            assert_eq!(found, Some(pos));
         }
     }
 
@@ -192,7 +194,27 @@ mod test {
 
         for (pos, i) in inp.iter().enumerate() {
             let found = skip_map.find(&i);
-            assert_eq!(found, Some(pos as u32));
+            assert_eq!(found, Some(pos));
+        }
+    }
+
+    #[test]
+    fn test_iter() {
+        let inp: Vec<_> = (0..1000).step_by(2).collect();
+        let skip_map = SkipList::from_sorted_iter(inp.clone());
+        let collected: Vec<_> = skip_map.iter().collect();
+        assert_eq!(collected, inp);
+    }
+
+    #[test]
+    fn test_find_id() {
+        let inp: Vec<_> = (0..1000).step_by(10).collect();
+        let skip_map = SkipList::from_sorted_iter(inp.clone());
+
+        for i in skip_map.iter() {
+            let found = skip_map.find(&i).unwrap();
+            let item = skip_map.get(found as usize).unwrap();
+            assert!(inp.binary_search(&item).is_ok());
         }
     }
 }

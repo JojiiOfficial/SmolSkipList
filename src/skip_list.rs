@@ -60,7 +60,7 @@ where
 {
     /// Finds an item within the skip-list using a key
     #[inline]
-    pub fn find(&self, key: &T) -> Option<u32> {
+    pub fn find(&self, key: &T) -> Option<usize> {
         self.map.find_by(|other| other.cmp(key)).map(|i| i.0)
     }
 
@@ -68,7 +68,7 @@ where
     /// The comparator function should return an order code that indicates whether
     /// its argument is Less, greater or equal to the value its looking for
     #[inline]
-    pub fn find_by<C>(&self, cmp: C) -> Option<u32>
+    pub fn find_by<C>(&self, cmp: C) -> Option<usize>
     where
         C: Fn(&T) -> Ordering,
     {
