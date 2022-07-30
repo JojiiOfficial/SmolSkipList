@@ -1,0 +1,12 @@
+[package]
+name = "smol_skip_list"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+itertools = "*"
+bincode = "*"
+serde = { version = "*", features = ["derive"] }
+st_file = { path = "../st_file" }
