@@ -1,7 +1,7 @@
 use crate::{deser::DeSer, link::Link, utils::is_pow2};
 use serde::{Deserialize, Serialize};
 use st_file::{traits::IndexedAccess, MemFile};
-use std::marker::PhantomData;
+use std::{cmp::Ordering, marker::PhantomData};
 
 /// A memory efficient balanced Skip-list implementation with values
 #[derive(Deserialize, Serialize)]
@@ -66,6 +66,13 @@ where
             p2: PhantomData,
         }
     }
+
+    /// Gets a link at the given position
+    #[inline]
+    fn get_item(&self, pos: u32) -> Option<Link<T, V>> {
+        let enc = self.items.get(pos as usize)?;
+        Link::<T, V>::decode(enc)
+    }
 }
 
 impl<T, V> SkipMap<T, V>
@@ -73,7 +80,49 @@ where
     T: DeSer + Ord,
     V: DeSer,
 {
-    pub fn find(&self, other: &T) -> Option<V> {
+    /// Finds the given order func in the skip map and returns its value and position
+    #[inline]
+    pub fn find(&self, key: &T) -> Option<(u32, V)> {
+        self.find_by(|other| other.cmp(key))
+    }
+
+    /// Finds the given order func in the skip map and returns its value and position.
+    /// The comparator function should return an order code that indicates whether
+    /// its argument is Less, greater or equal to the value its looking for
+    pub fn find_by<C>(&self, cmp: C) -> Option<(u32, V)>
+    where
+        C: Fn(&T) -> Ordering,
+    {
+        let mut prev_ep: Option<u32> = None;
+
+        for entry_point in self.entries.iter().copied() {
+            let item = self.get_item(entry_point)?;
+
+            match (cmp)(&item.item) {
+                Ordering::Equal => return Some((entry_point, item.value)),
+                Ordering::Greater => break,
+                Ordering::Less => (),
+            }
+
+            prev_ep = Some(entry_point);
+        }
+
+        let mut p = prev_ep?;
+        loop {
+            let p_item = self.get_item(p)?;
+            match (cmp)(&p_item.item) {
+                Ordering::Less => (),
+                Ordering::Greater => return None,
+                Ordering::Equal => return Some((p, p_item.value)),
+            }
+
+            if !p_item.has_next() {
+                break;
+            }
+
+            p = p_item.next;
+        }
+
         None
     }
 }

@@ -4,7 +4,7 @@ pub mod skip_list;
 pub mod skip_map;
 pub mod utils;
 
-use skip_list::SkipList;
+use crate::skip_map::SkipMap;
 
 fn main() {
     let mut terms: Vec<_> = [
@@ -12,9 +12,16 @@ fn main() {
         "algo",
     ]
     .into_iter()
-    .map(|i| i.to_string())
+    .enumerate()
+    .map(|i| (i.1.to_string(), i.0))
     .collect();
-    terms.sort_unstable();
 
-    let slist = SkipList::from_sorted_iter(terms);
+    terms.sort_unstable_by(|a, b| a.0.cmp(&b.0));
+    println!("{terms:?}");
+
+    let slist = SkipMap::from_sorted_iter(terms.clone());
+    for i in &terms {
+        let res = slist.find(&i.0.to_string());
+        println!("{:?}", res);
+    }
 }

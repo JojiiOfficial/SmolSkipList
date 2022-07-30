@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 /// A memory efficient balanced Skip-list implementation
 #[derive(Deserialize, Serialize)]
 pub struct SkipList<T> {
-    map: SkipMap<T, ()>,
+    pub(crate) map: SkipMap<T, ()>,
 }
 
 impl<T> SkipList<T>
