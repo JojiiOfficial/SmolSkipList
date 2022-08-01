@@ -14,7 +14,6 @@ where
     T: DeSer,
     V: DeSer,
 {
-    /*
     /// Create a new ListItem with key and value
     #[inline]
     pub fn new(item: T, value: V) -> Self {
@@ -24,7 +23,6 @@ where
             value,
         }
     }
-    */
 
     /// Creates a new ListItem with a value and next-pointer
     #[inline]

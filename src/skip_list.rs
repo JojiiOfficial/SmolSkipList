@@ -30,17 +30,6 @@ impl<T> SkipList<T>
 where
     T: DeSer,
 {
-    /// Creates a new SkipList from a list of sorted items. If the items aren't
-    /// ordered searching won't work.
-    #[inline]
-    pub fn from_sorted_iter<I>(list: I) -> Self
-    where
-        I: IntoIterator<Item = T>,
-    {
-        let map = SkipMap::from_sorted_iter(list.into_iter().map(|i| (i, ())));
-        Self { map }
-    }
-
     /// Returns an iterator over all items in the skip list ordered
     #[inline]
     pub fn iter(&self) -> SkListIter<T> {
@@ -58,6 +47,17 @@ impl<T> SkipList<T>
 where
     T: DeSer + Ord,
 {
+    /// Creates a new SkipList from a list of sorted items. If the items aren't
+    /// ordered searching won't work.
+    #[inline]
+    pub fn from_sorted_iter<I>(list: I) -> Self
+    where
+        I: IntoIterator<Item = T>,
+    {
+        let map = SkipMap::from_sorted_iter(list.into_iter().map(|i| (i, ())));
+        Self { map }
+    }
+
     /// Finds an item within the skip-list using a key
     #[inline]
     pub fn find(&self, key: &T) -> Option<usize> {

@@ -37,6 +37,33 @@ where
         Self::default()
     }
 
+    /// Returns an iterator over all items in the skip list
+    #[inline]
+    pub fn iter(&self) -> SkMapIter<T, V> {
+        SkMapIter::new(self)
+    }
+
+    /// Gets the key and value of the element at the given position
+    #[inline]
+    pub fn get(&self, pos: usize) -> Option<(T, V)> {
+        let enc = self.items.get(pos)?;
+        let item = ListItem::<T, V>::decode(enc)?;
+        Some((item.item, item.value))
+    }
+
+    /// Gets a list item at the given position
+    #[inline]
+    fn get_list_item(&self, pos: usize) -> Option<ListItem<T, V>> {
+        let enc = self.items.get(pos)?;
+        ListItem::<T, V>::decode(enc)
+    }
+}
+
+impl<T, V> SkipMap<T, V>
+where
+    T: DeSer + Ord,
+    V: DeSer,
+{
     /// Creates a new SkipList from a list of sorted items. If the items aren't
     /// ordered searching won't work.
     pub fn from_sorted_iter<I>(list: I) -> Self
@@ -81,33 +108,24 @@ where
         }
     }
 
-    /// Returns an iterator over all items in the skip list
-    #[inline]
-    pub fn iter(&self) -> SkMapIter<T, V> {
-        SkMapIter::new(self)
+    /// Inserts a new item into the skip-list and returns its ID
+    pub fn insert(&mut self, key: T, value: V) -> usize {
+        let id = self.len();
+        let list_item = ListItem::new(key, value);
+        let memid = self.items.insert(&list_item.encode_vec());
+        debug_assert_eq!(id, memid);
+
+        // TODO
+
+        id
     }
 
-    /// Gets the key and value of the element at the given position
+    /// Returns `true` if the `key` exists in the skip-list
     #[inline]
-    pub fn get(&self, pos: usize) -> Option<(T, V)> {
-        let enc = self.items.get(pos)?;
-        let item = ListItem::<T, V>::decode(enc)?;
-        Some((item.item, item.value))
+    pub fn contains(&self, key: &T) -> bool {
+        self.find(key).is_some()
     }
 
-    /// Gets a list item at the given position
-    #[inline]
-    fn get_list_item(&self, pos: usize) -> Option<ListItem<T, V>> {
-        let enc = self.items.get(pos)?;
-        ListItem::<T, V>::decode(enc)
-    }
-}
-
-impl<T, V> SkipMap<T, V>
-where
-    T: DeSer + Ord,
-    V: DeSer,
-{
     /// Finds an item within the skip-list using a key
     #[inline]
     pub fn find(&self, key: &T) -> Option<(usize, V)> {
@@ -121,10 +139,12 @@ where
     where
         C: Fn(&T) -> Ordering,
     {
+        let mut hits = 0;
         let mut prev_ep: Option<usize> = None;
 
         // Find entrypoint which is bigger then the element
         for entry_point in self.entries.iter().copied() {
+            hits += 1;
             let entry_point = entry_point as usize;
 
             let item = self.get_list_item(entry_point)?;
@@ -133,6 +153,7 @@ where
             if cmp == Ordering::Greater {
                 break;
             } else if cmp == Ordering::Equal {
+                println!("Find took {hits} hits");
                 return Some((entry_point, item.value));
             }
 
@@ -144,10 +165,12 @@ where
 
         // Search on the given level for the element
         loop {
+            hits += 1;
             let p_item = self.get_list_item(p)?;
             let cmp = (f)(&p_item.item);
 
             if cmp == Ordering::Equal {
+                println!("Find took {hits} hits");
                 return Some((p as usize, p_item.value));
             } else if cmp == Ordering::Greater || !p_item.has_next() {
                 break;
